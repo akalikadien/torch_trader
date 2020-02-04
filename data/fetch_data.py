@@ -9,6 +9,7 @@ import csv
 import ccxt
 import pandas as pd
 import datetime
+from sklearn.model_selection import train_test_split
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + '/python')
@@ -142,5 +143,12 @@ if __name__ == "__main__":
     # print(ccxt.exchanges)
 
     # format_data('bitcoin_price.csv')
-    preprocess_data('bitcoin_price_modified.csv')
+    # preprocess_data('bitcoin_price_modified.csv')
 
+    # create train and test dataset
+    data = pd.read_csv('bitcoin_price_modified_preprocessed.csv')
+    data = data.set_index('Date')
+    train = data.iloc[:1366, :]
+    train.to_csv('train.csv', sep=',')
+    test = data.iloc[1366:, :]
+    test.to_csv('test.csv', sep=',')

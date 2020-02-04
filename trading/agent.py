@@ -2,6 +2,7 @@
 # __author__: Adarsh Kalikadien #
 import torch
 import random
+import pandas as pd
 from trading.neuralnet import QvalueNN
 from trading.portfolio import Portfolio
 
@@ -9,6 +10,8 @@ from trading.portfolio import Portfolio
 class Agent:
     def __init__(self, starting_timestamp, gamma=0.7, epsilon=0.9):
         self.timestamp = starting_timestamp
+        self.features_data_filename = '../data/train.csv'
+        self.features_data = pd.read_csv(self.features_data_filename)
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = 0.0005
@@ -48,3 +51,25 @@ class Agent:
     def set_timestamp(self, timestamp):
         self.timestamp = timestamp
         return
+
+    def get_feature(self, timestamp):
+        timestamp_df = self.features_data[self.features_data['Date'] == timestamp]
+        timestamp_df = timestamp_df.set_index('Date')
+        feature = timestamp_df.iloc[0, :].values
+        return torch.Tensor(feature)
+
+    def train(self):
+        self.portfolio.initialize_portfolio()
+        epochs = 1365
+        learning_rate = 10e-4
+        optimizer = torch.optim.SGD(self.q_value_nn.model.parameters(), lr=learning_rate)
+        self.set_timestamp(1396735200)
+        for x in range(epochs):
+            pass
+
+
+
+if __name__ == '__main__':
+    agent = Agent(1514674800)
+    feature1 = agent.get_feature(1514674800)
+    print(feature1)
