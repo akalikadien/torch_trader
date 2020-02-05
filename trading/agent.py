@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*- 
 # __author__: Adarsh Kalikadien #
 import torch
+import torch.nn as nn
 import random
 import pandas as pd
+import matplotlib.pyplot as plt
 from trading.neuralnet import QvalueNN
 from trading.portfolio import Portfolio
 
 
 class Agent:
-    def __init__(self, starting_timestamp, gamma=0.7, epsilon=0.9):
+    def __init__(self, starting_timestamp, gamma=0.7, epsilon=0.6):
         self.timestamp = starting_timestamp
         self.features_data_filename = '../data/train.csv'
         self.features_data = pd.read_csv(self.features_data_filename)
+        self.loss_memory_training = []
+        self.portfolio_value_memory = []
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = 0.0005
@@ -22,6 +26,27 @@ class Agent:
         self.action_buy = 1
         self.action_sell = 2
         self.possible_actions = [self.action_hold, self.action_buy, self.action_sell]
+
+    @staticmethod
+    def calculate_reward(old, new):
+        reward = (new-old)/old
+        return reward
+
+    @staticmethod
+    def plot_loss(listname):
+        plt.plot(listname)
+        plt.xlabel('Days')
+        plt.ylabel('Loss')
+        plt.title('loss vs days training')
+        plt.show()
+
+    @staticmethod
+    def plot_portfolio_value(listname):
+        plt.plot(listname)
+        plt.xlabel('Days')
+        plt.ylabel('Value in $')
+        plt.title('value vs days training')
+        plt.show()
 
     def choose_random_action(self):
         return random.choice(self.possible_actions)
@@ -62,14 +87,50 @@ class Agent:
         self.portfolio.initialize_portfolio()
         epochs = 1365
         learning_rate = 10e-4
-        optimizer = torch.optim.SGD(self.q_value_nn.model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.SGD(self.q_value_nn.parameters(), lr=learning_rate)
+        loss_fn = nn.MSELoss(reduction='sum')
         self.set_timestamp(1396735200)
         for x in range(epochs):
-            pass
-
+            try:
+                feature = self.get_feature(self.timestamp)
+            except:
+                self.timestamp += 86400
+            try:
+                old_portfolio_value = self.portfolio.calculate_portfolio_value(self.timestamp)
+            except:
+                self.timestamp += 86400
+            q_predict = self.q_value_nn.forward(feature)    # first forward pass
+            chosen_action = self.choose_action(q_predict)
+            actual_action = self.do_action(chosen_action)
+            q_absolute = q_predict[actual_action]   # Q value of actual action to use in calculation of loss
+            # print('q absolute:', q_absolute)
+            self.timestamp += 86400
+            try:
+                new_portfolio_value = self.portfolio.calculate_portfolio_value(self.timestamp)
+            except:
+                self.timestamp += 86400
+            reward = self.calculate_reward(old_portfolio_value, new_portfolio_value)
+            try:
+                feature1 = self.get_feature(self.timestamp)
+            except:
+                self.timestamp += 86400
+            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find s',a'
+            # new_q = reward + gamma*max(Q(s',a'))
+            new_q = reward + self.gamma * torch.max(q_predict1)
+            loss = loss_fn(new_q, q_absolute)
+            self.loss_memory_training.append(loss.item())
+            print('epoch:' + str(x), 'action: ' + str(actual_action), 'reward: ' + str(reward), 'loss: ' + str(loss.item()))
+            print('current timestamp:', self.timestamp)
+            self.portfolio_value_memory.append(new_portfolio_value)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        self.plot_loss(self.loss_memory_training)
+        self.plot_portfolio_value(self.portfolio_value_memory)
 
 
 if __name__ == '__main__':
-    agent = Agent(1514674800)
-    feature1 = agent.get_feature(1514674800)
-    print(feature1)
+    agent = Agent(1396735200)
+    agent.train()
+    # feature2 = agent.get_feature(1396735200)
+    # print(feature2)

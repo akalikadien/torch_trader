@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- 
 # __author__: Adarsh Kalikadien #
 import pandas as pd
-
+import random
 
 class Portfolio:
     def __init__(self, amount_btc=0, amount_dollar=10000):
@@ -17,9 +17,13 @@ class Portfolio:
 
     # get price of the day with a given timestamp
     def get_price(self, timestamp):
-        timestamp_df = self.price_data[self.price_data['Date'] == timestamp]
-        timestamp_df = timestamp_df.set_index('Date')
-        price = (timestamp_df.iloc[0, 1] + timestamp_df.iloc[0, 2])/2  # average between high and low = price of the day
+        try:
+            timestamp_df = self.price_data[self.price_data['Date'] == timestamp]
+            timestamp_df = timestamp_df.set_index('Date')
+            timestamp_df = timestamp_df.values
+            price = (timestamp_df[0][1]+timestamp_df[0][2])/2
+        except:
+            price = random.randint(50, 500)  # choose random price if timestamp is not found
         return price
 
     # buy as much BTC as possible unless there are no dollars left
@@ -51,8 +55,9 @@ class Portfolio:
 
 if __name__ == '__main__':
     port = Portfolio()
-    port.buy_btc(1519081200)
-    print(port.calculate_portfolio_value(1519081200))
-    print(port.amount_btc)
-    print(port.amount_dollar)
+    print(port.get_price(123))
+    # port.buy_btc(1519081200)
+    # print(port.calculate_portfolio_value(1519081200))
+    # print(port.amount_btc)
+    # print(port.amount_dollar)
 

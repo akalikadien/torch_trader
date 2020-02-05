@@ -119,6 +119,7 @@ def preprocess_data(filename):
     df['bb_low_indicator'] = bollinger_lband_indicator(df['Close'], n=10, ndev=2, fillna=True)
 
     # Normalizing the indicators except the bollinger bands
+    df["Market Cap"] = df["Market Cap"] / df["Market Cap"].max()
     df["rsi"] = df["rsi"] / df["rsi"].max()
     df["macd"] = df["macd"] / df["macd"].max()
     df["macd_signal"] = df["macd_signal"] / df["macd_signal"].max()
