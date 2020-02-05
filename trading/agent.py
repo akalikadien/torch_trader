@@ -14,8 +14,9 @@ class Agent:
         self.timestamp = starting_timestamp
         self.features_data_filename = '../data/train.csv'
         self.features_data = pd.read_csv(self.features_data_filename)
-        self.loss_memory_training = []
+        self.loss_memory = []
         self.portfolio_value_memory = []
+        self.relative_strength_memory = []
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_decay = 0.0005
@@ -33,19 +34,27 @@ class Agent:
         return reward
 
     @staticmethod
-    def plot_loss(listname):
+    def plot_loss(listname, title):
         plt.plot(listname)
         plt.xlabel('Days')
         plt.ylabel('Loss')
-        plt.title('loss vs days training')
+        plt.title('loss vs days ' + title)
         plt.show()
 
     @staticmethod
-    def plot_portfolio_value(listname):
+    def plot_portfolio_value(listname, title):
         plt.plot(listname)
         plt.xlabel('Days')
         plt.ylabel('Value in $')
-        plt.title('value vs days training')
+        plt.title('value vs days ' + title)
+        plt.show()
+
+    @staticmethod
+    def plot_relative_strength(listname, title):
+        plt.plot(listname)
+        plt.xlabel('Days')
+        plt.ylabel('Relative strength')
+        plt.title('relative strength vs days ' + title)
         plt.show()
 
     def choose_random_action(self):
@@ -90,7 +99,7 @@ class Agent:
         optimizer = torch.optim.SGD(self.q_value_nn.parameters(), lr=learning_rate)
         loss_fn = nn.MSELoss(reduction='sum')
         self.set_timestamp(1396735200)
-        for x in range(epochs):
+        for x in range(epochs+1):
             try:
                 feature = self.get_feature(self.timestamp)
             except:
@@ -118,19 +127,70 @@ class Agent:
             # new_q = reward + gamma*max(Q(s',a'))
             new_q = reward + self.gamma * torch.max(q_predict1)
             loss = loss_fn(new_q, q_absolute)
-            self.loss_memory_training.append(loss.item())
+            self.loss_memory.append(loss.item())
             print('epoch:' + str(x), 'action: ' + str(actual_action), 'reward: ' + str(reward), 'loss: ' + str(loss.item()))
             print('current timestamp:', self.timestamp)
             self.portfolio_value_memory.append(new_portfolio_value)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-        self.plot_loss(self.loss_memory_training)
-        self.plot_portfolio_value(self.portfolio_value_memory)
+        self.plot_loss(self.loss_memory, 'training')
+        self.plot_portfolio_value(self.portfolio_value_memory, 'training')
+
+    def test(self):
+        self.features_data_filename = '../data/test.csv'
+        self.features_data = pd.read_csv(self.features_data_filename)
+        self.loss_memory = []
+        self.portfolio_value_memory = []
+        self.portfolio.initialize_portfolio()
+        self.set_timestamp(1367186400)
+        portfolio_start_value = self.portfolio.calculate_portfolio_value(self.timestamp)
+        btc_start_value = self.portfolio.get_price(self.timestamp)
+        epochs = 342
+        loss_fn = nn.MSELoss(reduction='sum')
+        for x in range(epochs+1):
+            try:
+                feature = self.get_feature(self.timestamp)
+            except:
+                self.timestamp += 86400
+            try:
+                old_portfolio_value = self.portfolio.calculate_portfolio_value(self.timestamp)
+            except:
+                self.timestamp += 86400
+            q_predict = self.q_value_nn.forward(feature)    # first forward pass
+            chosen_action = self.choose_action(q_predict)
+            actual_action = self.do_action(chosen_action)
+            q_absolute = q_predict[actual_action]   # Q value of actual action to use in calculation of loss
+            # print('q absolute:', q_absolute)
+            self.timestamp += 86400
+            btc_current_value = self.portfolio.get_price(self.timestamp)
+            try:
+                new_portfolio_value = self.portfolio.calculate_portfolio_value(self.timestamp)
+            except:
+                self.timestamp += 86400
+            reward = self.calculate_reward(old_portfolio_value, new_portfolio_value)
+            try:
+                feature1 = self.get_feature(self.timestamp)
+            except:
+                self.timestamp += 86400
+            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find s',a'
+            # new_q = reward + gamma*max(Q(s',a'))
+            new_q = reward + self.gamma * torch.max(q_predict1)
+            relative_strength = (new_portfolio_value/portfolio_start_value)/(btc_current_value/btc_start_value)
+            self.relative_strength_memory.append(relative_strength)
+            loss = loss_fn(new_q, q_absolute)
+            self.loss_memory.append(loss.item())
+            print('epoch:' + str(x), 'action: ' + str(actual_action), 'reward: ' + str(reward), 'loss: ' + str(loss.item()))
+            print('current timestamp:', self.timestamp)
+            self.portfolio_value_memory.append(new_portfolio_value)
+        self.plot_relative_strength(self.relative_strength_memory, 'test')
+        self.plot_loss(self.loss_memory, 'test')
+        self.plot_portfolio_value(self.portfolio_value_memory, 'test')
 
 
 if __name__ == '__main__':
     agent = Agent(1396735200)
     agent.train()
+    agent.test()
     # feature2 = agent.get_feature(1396735200)
     # print(feature2)
