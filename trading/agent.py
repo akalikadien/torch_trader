@@ -12,7 +12,7 @@ from trading.portfolio import Portfolio
 class Agent:
     def __init__(self, starting_timestamp, gamma=0.7, epsilon=0.6):
         self.timestamp = starting_timestamp
-        self.features_data_filename = '../data/train.csv'
+        self.features_data_filename = 'data/train.csv'
         self.features_data = pd.read_csv(self.features_data_filename)
         self.loss_memory = []
         self.portfolio_value_memory = []
@@ -93,12 +93,12 @@ class Agent:
         return torch.Tensor(feature)
 
     def train(self):
+        print("----------Starting training------------")
         self.portfolio.initialize_portfolio()
         epochs = 1365
         learning_rate = 10e-4
         optimizer = torch.optim.SGD(self.q_value_nn.parameters(), lr=learning_rate)
         loss_fn = nn.MSELoss(reduction='sum')
-        self.set_timestamp(1396735200)
         for x in range(epochs+1):
             try:
                 feature = self.get_feature(self.timestamp)
@@ -112,7 +112,6 @@ class Agent:
             chosen_action = self.choose_action(q_predict)
             actual_action = self.do_action(chosen_action)
             q_absolute = q_predict[actual_action]   # Q value of actual action to use in calculation of loss
-            # print('q absolute:', q_absolute)
             self.timestamp += 86400
             try:
                 new_portfolio_value = self.portfolio.calculate_portfolio_value(self.timestamp)
@@ -123,10 +122,10 @@ class Agent:
                 feature1 = self.get_feature(self.timestamp)
             except:
                 self.timestamp += 86400
-            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find s',a'
+            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find Q(s',a')
             # new_q = reward + gamma*max(Q(s',a'))
             new_q = reward + self.gamma * torch.max(q_predict1)
-            loss = loss_fn(new_q, q_absolute)
+            loss = loss_fn(new_q, q_absolute)   # difference between found Q and calculated target Q value
             self.loss_memory.append(loss.item())
             print('epoch:' + str(x), 'action: ' + str(actual_action), 'reward: ' + str(reward), 'loss: ' + str(loss.item()))
             print('current timestamp:', self.timestamp)
@@ -138,12 +137,12 @@ class Agent:
         self.plot_portfolio_value(self.portfolio_value_memory, 'training')
 
     def test(self):
-        self.features_data_filename = '../data/test.csv'
+        print("----------Starting testing------------")
+        self.features_data_filename = 'data/test.csv'
         self.features_data = pd.read_csv(self.features_data_filename)
         self.loss_memory = []
         self.portfolio_value_memory = []
         self.portfolio.initialize_portfolio()
-        self.set_timestamp(1367186400)
         portfolio_start_value = self.portfolio.calculate_portfolio_value(self.timestamp)
         btc_start_value = self.portfolio.get_price(self.timestamp)
         epochs = 342
@@ -161,7 +160,6 @@ class Agent:
             chosen_action = self.choose_action(q_predict)
             actual_action = self.do_action(chosen_action)
             q_absolute = q_predict[actual_action]   # Q value of actual action to use in calculation of loss
-            # print('q absolute:', q_absolute)
             self.timestamp += 86400
             btc_current_value = self.portfolio.get_price(self.timestamp)
             try:
@@ -173,7 +171,7 @@ class Agent:
                 feature1 = self.get_feature(self.timestamp)
             except:
                 self.timestamp += 86400
-            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find s',a'
+            q_predict1 = self.q_value_nn.forward(feature1)  # second forward pass to find Q(s',a')
             # new_q = reward + gamma*max(Q(s',a'))
             new_q = reward + self.gamma * torch.max(q_predict1)
             relative_strength = (new_portfolio_value/portfolio_start_value)/(btc_current_value/btc_start_value)
@@ -192,5 +190,3 @@ if __name__ == '__main__':
     agent = Agent(1396735200)
     agent.train()
     agent.test()
-    # feature2 = agent.get_feature(1396735200)
-    # print(feature2)

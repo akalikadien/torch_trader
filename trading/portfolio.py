@@ -3,11 +3,12 @@
 import pandas as pd
 import random
 
+
 class Portfolio:
     def __init__(self, amount_btc=0, amount_dollar=10000):
         self.amount_btc = amount_btc
         self.amount_dollar = amount_dollar
-        self.price_data_filename = '../data/bitcoin_price_modified.csv'
+        self.price_data_filename = 'data/bitcoin_price_modified.csv'
         self.price_data = pd.read_csv(self.price_data_filename)
 
     def initialize_portfolio(self):
@@ -56,8 +57,4 @@ class Portfolio:
 if __name__ == '__main__':
     port = Portfolio()
     print(port.get_price(123))
-    # port.buy_btc(1519081200)
-    # print(port.calculate_portfolio_value(1519081200))
-    # print(port.amount_btc)
-    # print(port.amount_dollar)
 
